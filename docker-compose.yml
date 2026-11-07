@@ -1,0 +1,287 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════════
+#  AI Resume Screening Platform — Full Local Dev Stack
+#
+#  Services:
+#    app          — Spring Boot application     :8080
+#    ai-nlp       — Python FastAPI NLP service  :5000
+#    mongo        — MongoDB 7                   :27017
+#    elasticsearch— Elasticsearch 8             :9200
+#    redis        — Redis 7                     :6379
+#    kafka        — Apache Kafka                :9092
+#    zookeeper    — Kafka dependency            :2181
+#    prometheus   — Metrics scraping            :9090
+#    grafana      — Dashboards                  :3000
+#    mongo-express— MongoDB UI                  :8081
+#    kibana       — Elasticsearch UI            :5601
+# ═══════════════════════════════════════════════════════════════
+
+networks:
+  resume-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  es-data:
+  redis-data:
+  kafka-data:
+  prometheus-data:
+  grafana-data:
+
+services:
+
+  # ─────────────────────────────────────────────────────────────
+  #  SPRING BOOT APPLICATION
+  # ─────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resume-screening-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      MONGO_DB: resume_screening_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ES_URI: http://elasticsearch:9200
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AI_NLP_URL: http://ai-nlp:5000
+      AI_NLP_ENABLED: "true"
+      JWT_SECRET: "aVeryLongAndSecureSecretKeyForJWTSigningThatIsAtLeast256BitsLong12345"
+      RESUME_STORAGE_PATH: /app/uploads/resumes
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - resume-net
+    restart: on-failure:5
+    command: >
+      sh -c "
+        echo 'Waiting 30 extra seconds for Elasticsearch to fully initialise...' &&
+        sleep 30 &&
+        java -jar /app/app.jar
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # ─────────────────────────────────────────────────────────────
+  #  PYTHON AI / NLP MICROSERVICE
+  # ─────────────────────────────────────────────────────────────
+  ai-nlp:
+    build:
+      context: ./ai-nlp-service
+      dockerfile: Dockerfile
+    container_name: resume-nlp-service
+    ports:
+      - "5000:5000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    networks:
+      - resume-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ─────────────────────────────────────────────────────────────
+  #  MONGODB
+  # ─────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7.0
+    container_name: resume-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: resume_screening_db
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - resume-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────────────────────
+  #  MONGO EXPRESS (Web UI)
+  # ─────────────────────────────────────────────────────────────
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: resume-mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
+    depends_on:
+      - mongo
+    networks:
+      - resume-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  #  ELASTICSEARCH
+  # ─────────────────────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.1
+    container_name: resume-elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: false
+      xpack.security.http.ssl.enabled: false
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - resume-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 90s
+
+  # ─────────────────────────────────────────────────────────────
+  #  KIBANA (Elasticsearch UI)
+  # ─────────────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.16.1
+    container_name: resume-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+    depends_on:
+      - elasticsearch
+    networks:
+      - resume-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  #  REDIS
+  # ─────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.4-alpine
+    container_name: resume-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - resume-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────────────────────
+  #  ZOOKEEPER (Kafka dependency)
+  # ─────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.1
+    container_name: resume-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - resume-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  #  KAFKA
+  # ─────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: resume-kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - resume-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  #  PROMETHEUS
+  # ─────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: resume-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - resume-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  #  GRAFANA
+  # ─────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: resume-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - resume-net
+    restart: unless-stopped

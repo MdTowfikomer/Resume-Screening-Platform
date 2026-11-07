@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Talent Search Engine | MongoDB + Elasticsearch</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400">
+            AI Talent Search & Screening Platform
+          </h1>
+          <p class="text-xs text-slate-400">MongoDB (Document Store) & Elasticsearch (Hybrid Vector Search)</p>
+        </div>
+      </div>
+
+      <!-- Database Status Indicators -->
+      <div class="flex items-center gap-3">
+        <div id="mongo-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-slate-300 font-medium">MongoDB:</span>
+          <span id="mongo-status" class="text-emerald-400 font-mono">Checking...</span>
+        </div>
+        <div id="elastic-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+          <span class="text-slate-300 font-medium">Elasticsearch:</span>
+          <span id="elastic-status" class="text-cyan-400 font-mono">Checking...</span>
+        </div>
+        <button onclick="seedData()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30">
+          <i class="fa-solid fa-database"></i> Seed Candidates
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+    <!-- Search Section -->
+    <section class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-2xl relative overflow-hidden">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> AI Hybrid Candidate Retrieval
+          </h2>
+          <p class="text-sm text-slate-400">Reciprocal Rank Fusion (RRF) combining BM25 Lexical Keyword Search + 64-dim Dense Vector Similarity</p>
+        </div>
+
+        <!-- Mode Select -->
+        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
+          <button id="mode-hybrid" onclick="setMode('hybrid')" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white shadow">Hybrid (RRF)</button>
+          <button id="mode-vector" onclick="setMode('vector')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white">Vector (kNN)</button>
+          <button id="mode-lexical" onclick="setMode('lexical')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white">BM25 Keyword</button>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <input 
+          id="search-input" 
+          type="text" 
+          placeholder="e.g. Senior Backend Engineer with Python, FastAPI, and Kubernetes experience..." 
+          class="flex-1 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+          onkeydown="if(event.key === 'Enter') runSearch()"
+        />
+        <button onclick="runSearch()" class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center gap-2 shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-bolt"></i> Search
+        </button>
+      </div>
+
+      <!-- Quick query chips -->
+      <div class="flex flex-wrap gap-2 mt-3 items-center text-xs text-slate-400">
+        <span>Try searching:</span>
+        <button onclick="quickSearch('Python FastAPI MongoDB backend')" class="px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300">"Python FastAPI MongoDB"</button>
+        <button onclick="quickSearch('NLP machine learning PyTorch vector search')" class="px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300">"NLP PyTorch Vector Search"</button>
+        <button onclick="quickSearch('Kubernetes AWS DevOps infrastructure')" class="px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300">"Kubernetes AWS DevOps"</button>
+      </div>
+
+      <!-- Results Grid -->
+      <div id="results-container" class="mt-6 space-y-3">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Two Column: Skill Extraction & Job Match -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+      <!-- Column 1: AI Resume Parser & Ingestion -->
+      <div class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-xl flex flex-col justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
+            <i class="fa-solid fa-file-invoice text-emerald-400"></i> AI Skill Extraction & MongoDB Sync
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">Paste raw candidate resume text to extract skills, experience, and sync to MongoDB + Elasticsearch.</p>
+
+          <div class="space-y-3">
+            <input id="cand-name" type="text" placeholder="Candidate Name (e.g. Alex Rivera)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500" />
+            <textarea id="resume-text" rows="6" placeholder="Paste full resume text here..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"></textarea>
+          </div>
+
+          <div class="flex gap-2 mt-3">
+            <button onclick="extractSkills()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> 1. Extract Skills
+            </button>
+            <button onclick="saveAndSync()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-cloud-arrow-up"></i> 2. Save & Sync to DBs
+            </button>
+          </div>
+
+          <!-- Extraction Output -->
+          <div id="extract-result" class="mt-4 p-4 rounded-xl bg-slate-900/80 border border-slate-700/60 hidden">
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Extraction Results</h4>
+            <div id="skills-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+            <div id="meta-stats" class="text-xs text-slate-400 space-y-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Job Requisition Match Scorer -->
+      <div class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-xl flex flex-col justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
+            <i class="fa-solid fa-bullseye text-indigo-400"></i> Job Fit & Semantic Match Scorer
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">Calculate keyword alignment & semantic vector affinity between candidate skills and job requirements.</p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Required Skills (Comma separated)</label>
+              <input id="req-skills" type="text" value="Python, FastAPI, MongoDB, Elasticsearch, Docker" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Preferred Skills</label>
+              <input id="pref-skills" type="text" value="Kubernetes, Redis, Kafka" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Candidate Profile to Test</label>
+              <textarea id="match-candidate-text" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">Backend engineer with 6 years experience in Python, FastAPI, and MongoDB. Designed full-text search indexes with Elasticsearch and caching with Redis.</textarea>
+            </div>
+          </div>
+
+          <button onclick="calculateMatch()" class="w-full mt-4 py-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-slate-950 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
+            <i class="fa-solid fa-chart-simple"></i> Compute Weighted Match Score
+          </button>
+
+          <!-- Match Output -->
+          <div id="match-result" class="mt-4 p-4 rounded-xl bg-slate-900/80 border border-slate-700/60 hidden">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-slate-300 uppercase">Match Score</span>
+              <span id="final-score" class="text-2xl font-black text-emerald-400">92%</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 mb-3">
+              <div id="score-bar" class="bg-gradient-to-r from-emerald-500 to-cyan-500 h-2 rounded-full" style="width: 92%"></div>
+            </div>
+            <p id="match-explanation" class="text-xs text-slate-300 leading-relaxed"></p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-12 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    <p>AI Talent Search Engine • Built with FastAPI, MongoDB, Elasticsearch, and Vector Hybrid Search (RRF).</p>
+  </footer>
+
+  <script>
+    let currentMode = 'hybrid';
+    let lastExtracted = null;
+
+    function setMode(mode) {
+      currentMode = mode;
+      ['hybrid', 'vector', 'lexical'].forEach(m => {
+        const btn = document.getElementById(`mode-${m}`);
+        if (m === mode) {
+          btn.className = 'px-3 py-1.5 rounded-lg bg-emerald-500 text-white shadow';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-slate-400 hover:text-white';
+        }
+      });
+      runSearch();
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        
+        const mongoStatus = document.getElementById('mongo-status');
+        mongoStatus.innerText = data.mongodb.connected ? 'Connected' : 'In-Memory Mode';
+        mongoStatus.className = data.mongodb.connected ? 'text-emerald-400 font-mono' : 'text-amber-400 font-mono';
+
+        const elasticStatus = document.getElementById('elastic-status');
+        elasticStatus.innerText = data.elasticsearch.connected ? 'Connected' : 'In-Memory Mode';
+        elasticStatus.className = data.elasticsearch.connected ? 'text-cyan-400 font-mono' : 'text-amber-400 font-mono';
+      } catch (e) {
+        console.error('Health check failed', e);
+      }
+    }
+
+    async function seedData() {
+      try {
+        const res = await fetch('/api/v1/seed', { method: 'POST' });
+        const data = await res.json();
+        alert(`Success! Seeded ${data.seeded_count} candidate profiles into MongoDB & Elasticsearch.`);
+        checkHealth();
+        runSearch();
+      } catch (e) {
+        alert('Seed failed: ' + e);
+      }
+    }
+
+    function quickSearch(q) {
+      document.getElementById('search-input').value = q;
+      runSearch();
+    }
+
+    async function runSearch() {
+      const q = document.getElementById('search-input').value.trim();
+      const container = document.getElementById('results-container');
+      container.innerHTML = '<div class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Querying Elasticsearch hybrid index...</div>';
+
+      try {
+        const res = await fetch('/api/v1/search/hybrid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, mode: currentMode, top_k: 5 })
+        });
+        const data = await res.json();
+        renderResults(data.results);
+      } catch (e) {
+        container.innerHTML = `<div class="text-center py-6 text-rose-400 text-sm">Search failed: ${e}</div>`;
+      }
+    }
+
+    function renderResults(results) {
+      const container = document.getElementById('results-container');
+      if (!results || results.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">No matching candidates found. Click "Seed Candidates" above to load test profiles!</div>';
+        return;
+      }
+
+      container.innerHTML = results.map((r, i) => `
+        <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/70 hover:border-slate-600 transition flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="space-y-1.5 flex-1">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">#${i + 1}</span>
+              <h3 class="text-base font-bold text-white">${r.candidate_name || 'Anonymous'}</h3>
+              <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${r.experience_years ? r.experience_years + ' yrs exp' : 'Experience N/A'}</span>
+            </div>
+            <p class="text-xs text-slate-300">${r.summary || 'Profile indexed in MongoDB & Elasticsearch'}</p>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              ${(r.skills || []).map(s => `<span class="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 text-xs">${s}</span>`).join('')}
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs text-slate-400 block">${currentMode === 'hybrid' ? 'RRF Fused Score' : 'Relevance Score'}</span>
+            <span class="text-xl font-black text-cyan-400 font-mono">${r.rrf_score || r.score || '0.00'}</span>
+            ${r.lexical_rank && r.vector_rank ? `<span class="text-[10px] text-slate-500 block">BM25 Rank: #${r.lexical_rank} | Vector: #${r.vector_rank}</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function extractSkills() {
+      const text = document.getElementById('resume-text').value.trim();
+      if (!text) {
+        alert('Please paste resume text first.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/v1/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        lastExtracted = data;
+
+        const box = document.getElementById('extract-result');
+        box.classList.remove('hidden');
+
+        document.getElementById('skills-chips').innerHTML = data.technical_skills.map(s => `
+          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs border border-emerald-500/30 font-medium">${s}</span>
+        `).join('') || '<span class="text-xs text-slate-500">No skills identified</span>';
+
+        document.getElementById('meta-stats').innerHTML = `
+          <div><strong>Experience:</strong> ${data.experience_years ? data.experience_years + ' years' : 'N/A'}</div>
+          <div><strong>Summary:</strong> ${data.summary || 'N/A'}</div>
+          <div><strong>Processing Time:</strong> ${data.processing_time_ms}ms (Confidence: ${Math.round(data.confidence_score * 100)}%)</div>
+        `;
+      } catch (e) {
+        alert('Extraction error: ' + e);
+      }
+    }
+
+    async function saveAndSync() {
+      const name = document.getElementById('cand-name').value.trim() || 'Alex Rivera';
+      const text = document.getElementById('resume-text').value.trim();
+      if (!text) {
+        alert('Please enter resume text before saving.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/v1/resumes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            candidate_name: name,
+            raw_text: text,
+            technical_skills: lastExtracted ? lastExtracted.technical_skills : [],
+            soft_skills: lastExtracted ? lastExtracted.soft_skills : [],
+            experience_years: lastExtracted ? lastExtracted.experience_years : 3.0,
+            summary: lastExtracted ? lastExtracted.summary : ''
+          })
+        });
+        const data = await res.json();
+        alert(`Successfully synchronized! Stored in MongoDB and Indexed in Elasticsearch with ID: ${data.id}`);
+        checkHealth();
+        runSearch();
+      } catch (e) {
+        alert('Sync error: ' + e);
+      }
+    }
+
+    async function calculateMatch() {
+      const req = document.getElementById('req-skills').value.split(',').map(s => s.trim()).filter(Boolean);
+      const pref = document.getElementById('pref-skills').value.split(',').map(s => s.trim()).filter(Boolean);
+      const text = document.getElementById('match-candidate-text').value.trim();
+
+      try {
+        const res = await fetch('/api/v1/match-score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resume_text: text,
+            required_skills: req,
+            preferred_skills: pref
+          })
+        });
+        const data = await res.json();
+
+        const box = document.getElementById('match-result');
+        box.classList.remove('hidden');
+
+        document.getElementById('final-score').innerText = `${data.score}%`;
+        document.getElementById('score-bar').style.width = `${data.score}%`;
+        document.getElementById('match-explanation').innerText = data.explanation;
+      } catch (e) {
+        alert('Match calculation error: ' + e);
+      }
+    }
+
+    // Init on load
+    checkHealth();
+    runSearch();
+  </script>
+</body>
+</html>

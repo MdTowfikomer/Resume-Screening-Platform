@@ -1,0 +1,82 @@
+# ─── Maven ────────────────────────────────────────────────────
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ─── IDE ──────────────────────────────────────────────────────
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+*.class
+*.DS_Store
+
+# ─── Spring Boot ──────────────────────────────────────────────
+*.jar
+*.war
+*.ear
+*.nar
+logs/
+*.log
+spring-shell.log
+
+# ─── Application secrets ──────────────────────────────────────
+application-local.yml
+application-local.properties
+application-secret*.yml
+*.env
+.env
+.env.*
+secrets/
+
+# ─── Docker ───────────────────────────────────────────────────
+.dockerignore
+
+# ─── Uploaded files ───────────────────────────────────────────
+uploads/
+/uploads/
+
+# ─── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.mypy_cache/
+.ruff_cache/
+
+# ─── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Misc ─────────────────────────────────────────────────────
+*.bak
+*.swp
+*.tmp
+*.orig
+node_modules/

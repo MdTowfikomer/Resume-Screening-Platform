@@ -1,0 +1,167 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  main:
+    lazy-initialization: true
+  application:
+    name: ai-resume-screening-platform
+
+  # ── MongoDB ────────────────────────────────────────────────
+  data:
+    mongodb:
+      host: ${MONGO_HOST:localhost}
+      port: ${MONGO_PORT:27017}
+      database: ${MONGO_DB:resume_screening_db}
+#      auto-index-creation: true
+
+    # ── Redis ─────────────────────────────────────────────────
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+          max-wait: 1000ms
+
+    # ── Elasticsearch ─────────────────────────────────────────
+    elasticsearch:
+      uris: ${ES_URI:http://localhost:9200}
+      username: ${ES_USERNAME:}
+      password: ${ES_PASSWORD:}
+      socket-timeout: 10s
+      connection-timeout: 5s
+
+  # ── Kafka ─────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        spring.json.add.type.headers: false
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: resume-screening-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.resumeai.*"
+        spring.json.use.type.headers: false
+      enable-auto-commit: false
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 3
+
+  # ── File Upload ───────────────────────────────────────────
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  # ── Jackson ───────────────────────────────────────────────
+  jackson:
+    default-property-inclusion: NON_NULL
+    serialization:
+      write-dates-as-timestamps: false
+      write-date-timestamps-as-nanoseconds: false
+    deserialization:
+      fail-on-unknown-properties: false
+      adjust-dates-to-context-time-zone: false
+    # This registers JavaTimeModule automatically
+    time-zone: UTC
+
+# ── Application-level config ──────────────────────────────
+app:
+  jwt:
+    secret: ${JWT_SECRET:aVeryLongAndSecureSecretKeyForJWTSigningThatIsAtLeast256BitsLong12345}
+    expiration-ms: 86400000          # 24h
+    refresh-expiration-ms: 604800000 # 7d
+
+  resume:
+    storage-path: ${RESUME_STORAGE_PATH:./uploads/resumes}
+    allowed-types: application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    max-size-mb: 10
+
+  ai-nlp:
+    base-url: ${AI_NLP_URL:http://localhost:5000}
+    timeout-seconds: 30
+    enabled: ${AI_NLP_ENABLED:true}
+
+  matching:
+    score-threshold: 60.0
+    cache-ttl-minutes: 60
+
+  kafka:
+    topics:
+      resume-uploaded: resume-uploaded-events
+      resume-processed: resume-processed-events
+      job-matched: job-matched-events
+      notification: notification-events
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:4200}
+
+# ── Elasticsearch Index Names ─────────────────────────────
+elasticsearch:
+  index:
+    resume: resumes
+    job: jobs
+
+# ── Springdoc / Swagger ───────────────────────────────────
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    display-request-duration: true
+  info:
+    title: AI Resume Screening & Job Matching API
+    version: v1.0.0
+
+# ── Actuator / Prometheus ─────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# ── Logging ───────────────────────────────────────────────
+logging:
+  level:
+    com.resumeai: INFO
+    org.springframework.security: INFO
+    org.springframework.data.elasticsearch: INFO
+    org.apache.kafka: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/ai-resume-platform.log

@@ -1,0 +1,247 @@
+{
+  "info": {
+    "name": "AI Resume Screening Platform",
+    "description": "Complete API collection for the AI Resume Screening & Job Matching Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",   "value": "http://localhost:8080" },
+    { "key": "authToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Recruiter",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"recruiter@company.com\",\n  \"username\": \"recruiter1\",\n  \"password\": \"SecurePass123!\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Recruiter\",\n  \"companyName\": \"TechCorp\",\n  \"role\": \"ROLE_RECRUITER\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Candidate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"username\": \"johndoe\",\n  \"password\": \"SecurePass123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"role\": \"ROLE_CANDIDATE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.accessToken) {",
+                  "    pm.collectionVariables.set('authToken', json.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"recruiter@company.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resumes",
+      "item": [
+        {
+          "name": "Upload Resume (PDF)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/resumes/upload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "/path/to/resume.pdf" },
+                { "key": "candidateId",    "value": "cand-001",              "type": "text" },
+                { "key": "candidateEmail", "value": "john.doe@example.com",  "type": "text" },
+                { "key": "candidateName",  "value": "John Doe",              "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Resumes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/resumes?page=0&size=20&sortBy=createdAt&sortDir=desc",
+              "query": [
+                { "key": "page",    "value": "0" },
+                { "key": "size",    "value": "20" },
+                { "key": "sortBy",  "value": "createdAt" },
+                { "key": "sortDir", "value": "desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Resumes by Skills",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/resumes/search/skills",
+            "body": { "mode": "raw", "raw": "[\"Java\", \"Spring Boot\", \"Kubernetes\"]" }
+          }
+        },
+        {
+          "name": "Reprocess Resume",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/resumes/{{resumeId}}/reprocess"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Create Job Posting",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/jobs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Java Engineer\",\n  \"description\": \"We are looking for an experienced Java engineer to join our platform team.\",\n  \"companyName\": \"TechCorp\",\n  \"location\": \"San Francisco, CA\",\n  \"remoteAllowed\": true,\n  \"employmentType\": \"FULL_TIME\",\n  \"experienceLevel\": \"SENIOR\",\n  \"minExperienceYears\": 5,\n  \"maxExperienceYears\": 10,\n  \"salaryMin\": 150000,\n  \"salaryMax\": 200000,\n  \"salaryCurrency\": \"USD\",\n  \"requiredSkills\": [\"Java\", \"Spring Boot\", \"Kubernetes\", \"AWS\"],\n  \"preferredSkills\": [\"Kafka\", \"Redis\", \"Docker\"],\n  \"requiredEducation\": \"Bachelor\",\n  \"responsibilities\": [\"Design microservices\", \"Code reviews\", \"Mentor junior devs\"],\n  \"benefits\": [\"Health insurance\", \"401k\", \"Remote work\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Active Jobs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/jobs?page=0&size=20"
+          }
+        },
+        {
+          "name": "Search Jobs by Keyword",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/jobs/search?keyword=Java&page=0&size=10"
+          }
+        },
+        {
+          "name": "My Job Postings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/jobs/recruiter/mine"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matching",
+      "item": [
+        {
+          "name": "Trigger Single Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/matches/trigger",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resumeId\": \"{{resumeId}}\",\n  \"jobId\": \"{{jobId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Bulk Match All Resumes to Job",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/matches/bulk/{{jobId}}?scoreThreshold=60.0"
+          }
+        },
+        {
+          "name": "Get Matches by Job (sorted by score)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/matches/by-job/{{jobId}}?page=0&size=20"
+          }
+        },
+        {
+          "name": "Get Top Candidates for Job",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/matches/top/{{jobId}}?threshold=70.0"
+          }
+        },
+        {
+          "name": "Shortlist Candidate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/matches/{{matchId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHORTLISTED\",\n  \"recruiterNotes\": \"Strong candidate — schedule technical interview\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recruiter Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/v1/recruiter/dashboard"
+          }
+        }
+      ]
+    }
+  ]
+}
