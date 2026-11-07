@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "ai-talent-search-frontend",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "ai-talent-search-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for AI Talent Screening & Hybrid Search Engine (MongoDB + Elasticsearch)",
+  "scripts": {
+    "start": "serve ."
+  },
+  "keywords": ["ai", "fastapi", "elasticsearch", "mongodb", "hybrid-search"],
+  "author": "",
+  "license": "MIT"
+}
