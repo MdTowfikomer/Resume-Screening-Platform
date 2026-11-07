@@ -1,422 +1,109 @@
-# 🤖 AI-Powered Resume Screening & Job Matching Platform
+# 🎯 AI Talent Screening & Hybrid Search Platform
+### Fusing MongoDB Atlas & Elasticsearch Cloud with Reciprocal Rank Fusion (RRF)
 
-[![CI — Build, Test & Docker Push](https://github.com/rahul-ghadge/ai-resume-screening-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/rahul-ghadge/ai-resume-screening-platform/actions/workflows/ci.yml)
-
-[![Java](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen)](https://spring.io/projects/spring-boot)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green)](https://www.mongodb.com/)
-[![Elasticsearch](https://img.shields.io/badge/Elasticsearch-8.x-yellow)](https://www.elastic.co/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-red)](https://redis.io/)
-[![Kafka](https://img.shields.io/badge/Kafka-7.x-black)](https://kafka.apache.org/)
-[![Docker](https://img.shields.io/badge/Docker-compose-blue)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-
-> Enterprise-grade AI-powered hiring platform that streamlines resume screening,  
-> extracts skills via NLP, scores job matches, and surfaces top talent to recruiters.
+[![Live Web Application](https://img.shields.io/badge/Live%20Demo-ai--talent--search.vercel.app-2563eb?style=for-the-badge&logo=vercel)](https://ai-talent-search.vercel.app/)
+[![Medium Technical Deep Dive](https://img.shields.io/badge/Medium-Read%20Article-black?style=for-the-badge&logo=medium)](https://medium.com/@mdtowfikomer/building-an-ai-powered-talent-search-engine-with-mongodb-elasticsearch-and-vector-hybrid-search-2731de6a4fc7)
+[![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB%20Atlas-Online-47A248?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
+[![Elasticsearch](https://img.shields.io/badge/Elasticsearch-Serverless%209.7-005571?style=for-the-badge&logo=elasticsearch)](https://www.elastic.co/)
 
 ---
 
-## 📐 Architecture Overview
+## 📌 Executive Summary
+
+Traditional Applicant Tracking Systems (ATS) struggle with two extremes:
+1. **Lexical Keyword Matching (BM25)** is brittle — it misses qualified candidates whose resumes describe identical proficiencies with different wording.
+2. **Dense Vector Semantic Search** lacks precision — it often hallucinates conceptual matches while ignoring hard technical prerequisites.
+
+This platform implements the **Dual-Store Architecture** to bridge this gap:
+- **MongoDB Atlas** serves as the transactional **Source of Truth** for candidate resumes and job postings.
+- **Elasticsearch Cloud (Serverless v9.7)** indexes **64-dimensional dense semantic vectors** alongside BM25 inverted text indices.
+- **Reciprocal Rank Fusion (RRF)** combines both rankings with a smoothing constant ($k=60$) to surface candidates with both exact technical skills and contextual relevance.
+
+---
+
+## 🏛️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Client (Recruiter / Candidate)               │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ REST / JWT
-┌──────────────────────────────▼──────────────────────────────────┐
-│             Spring Boot Application  :8080                      │
-│                                                                 │
-│  AuthController  ResumeController  JobController  MatchController│
-│       ▼               ▼                ▼               ▼        │
-│  AuthService    ResumeService    JobService      MatchService   │
-│       ▼               ▼                ▼               ▼        │
-│  UserRepo      ResumeRepo        JobRepo         MatchRepo      │
-│                  (MongoDB)                       (MongoDB)      │
-│                       │                                         │
-│                 Kafka Producer ──► resume-uploaded-events       │
-└───────────────────────────────────────────────────────────────-─┘
-                               │
-          ┌────────────────────┼────────────────────┐
-          ▼                    ▼                    ▼
-   ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
-   │  MongoDB 7  │    │ Elasticsearch│    │    Redis 7      │
-   │  (Primary   │    │ (Full-text   │    │  (Cache +       │
-   │  Database)  │    │  Search)     │    │  Sessions)      │
-   └─────────────┘    └──────────────┘    └─────────────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │    Kafka Consumer   │
-                    │  (Async Processing) │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │  Python NLP Service │
-                    │      :5000          │
-                    │  FastAPI + spaCy +  │
-                    │  sentence-BERT      │
-                    └─────────────────────┘
+                       ┌──────────────────────────────────────────────┐
+                       │          Client Web UI (Vercel Edge)         │
+                       │        https://ai-talent-search.vercel.app   │
+                       └──────────────────────┬───────────────────────┘
+                                              │ HTTP / JSON
+                       ┌──────────────────────▼───────────────────────┐
+                       │        FastAPI Unified ASGI Service          │
+                       │   • NLP Skill Extraction & NER               │
+                       │   • 64-dim Dense Vector Embeddings           │
+                       │   • Reciprocal Rank Fusion Engine            │
+                       └──────────────┬───────────────────────┬───────┘
+                                      │                       │
+                       ┌──────────────▼──────┐ ┌──────────────▼───────────┐
+                       │   MongoDB Atlas     │ │   Elasticsearch Cloud    │
+                       │  (Source of Truth)  │ │   (Vector + BM25 Engine) │
+                       │                     │ │                          │
+                       │ • Resume Documents  │ │ • BM25 Inverted Index    │
+                       │ • Candidate History │ │ • Dense Cosine kNN       │
+                       │ • Flexible JSON/BSON│ │ • Reciprocal Rank Fusion │
+                       └─────────────────────┘ └──────────────────────────┘
 ```
 
 ---
 
-## ✨ Features
+## 🔬 The Math: Reciprocal Rank Fusion (RRF)
 
-| Feature | Description |
-|---|---|
-| 📄 **Resume Upload** | PDF / DOCX upload with validation (max 10 MB) |
-| 🔍 **PDF Parsing** | Apache PDFBox text extraction with layout preservation |
-| 🧠 **AI Skill Extraction** | Python NLP microservice with spaCy + sentence-BERT |
-| 🎯 **Job Matching Score** | Weighted scoring: skills (50%) + experience (25%) + education (10%) + keywords (15%) |
-| ⚡ **Async Processing** | Kafka-based pipeline — upload returns instantly, processing is async |
-| 🔎 **Elasticsearch Search** | Full-text resume and job search with relevance ranking |
-| 💾 **Redis Caching** | Per-entity TTL caches for resumes, jobs, and match scores |
-| 🔐 **JWT Security** | Stateless authentication with role-based access (ADMIN / RECRUITER / CANDIDATE) |
-| 📊 **Recruiter Dashboard** | Real-time stats: jobs, applications, shortlists, top candidates |
-| 📈 **Prometheus + Grafana** | Production-ready metrics and dashboards |
-| 🐳 **Docker Compose** | One-command local dev with all 10 services |
-| 🚀 **CI/CD** | GitHub Actions: build → test → Docker push → SonarCloud |
+Score normalization between unbounded BM25 scores and bounded cosine similarities often produces distorted rankings. **RRF** overcomes this by evaluating rank positions:
+
+$$\text{RRF Score}(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
+
+Where:
+- $M$ is the set of retrieval modalities (BM25 Lexical + Dense Vector).
+- $r_m(d)$ is the 1-based rank position of document $d$ in modality $m$.
+- $k = 60$ is the standard smoothing parameter that balances high-rank precision with long-tail recall.
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 Live Demo & Endpoints
 
-### Backend
-| Technology | Version | Purpose |
-|---|---|---|
-| Java | 21 | Language |
-| Spring Boot | 3.4.1 | Application framework |
-| Spring Security | 6.x | JWT authentication & RBAC |
-| Spring Data MongoDB | 4.x | Primary database ORM |
-| Spring Data Elasticsearch | 5.x | Full-text search |
-| Spring Data Redis | 3.x | Caching layer |
-| Spring Kafka | 3.x | Async event streaming |
-| Apache PDFBox | 3.0.3 | PDF text extraction |
-| MapStruct | 1.6.3 | DTO mapping |
-| Lombok | 1.18.36 | Boilerplate reduction |
-| SpringDoc OpenAPI | 2.7.0 | Swagger UI |
-| Micrometer Prometheus | 1.14.x | Metrics |
+- **Live Web Application**: [https://ai-talent-search.vercel.app/](https://ai-talent-search.vercel.app/)
+- **Technical Deep-Dive Article**: [Read on Medium](https://medium.com/@mdtowfikomer/building-an-ai-powered-talent-search-engine-with-mongodb-elasticsearch-and-vector-hybrid-search-2731de6a4fc7)
 
-### AI/NLP Microservice (Python)
-| Technology | Version | Purpose |
-|---|---|---|
-| FastAPI | 0.115.x | REST framework |
-| spaCy | 3.8.x | NLP + NER |
-| sentence-transformers | 3.3.x | Semantic similarity |
-| Uvicorn | 0.32.x | ASGI server |
+### REST API Reference
 
-### Infrastructure
-| Service | Version | Purpose |
+| Method | Endpoint | Description |
 |---|---|---|
-| MongoDB | 7.0 | Primary database |
-| Elasticsearch | 8.16 | Search & indexing |
-| Redis | 7.4 | Cache & session |
-| Apache Kafka | 7.7 (Confluent) | Event streaming |
-| Prometheus | 2.55 | Metrics collection |
-| Grafana | 11.4 | Dashboards |
+| `GET` | `/health` | Cluster health status for MongoDB and Elasticsearch |
+| `POST` | `/api/v1/search/hybrid` | Fused RRF hybrid candidate search (`mode: hybrid/vector/lexical`) |
+| `POST` | `/api/v1/resumes` | Dual-write pipeline: stores in Mongo & indexes in Elastic |
+| `POST` | `/api/v1/extract` | AI NLP technical skill & entity extraction |
+| `POST` | `/api/v1/match-score` | Weighted composite job-resume score breakdown |
+| `POST` | `/api/v1/seed` | Seeds verified benchmark candidate profiles |
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Local Development & Quickstart
 
-### Prerequisites
-- Java 21+
-- Maven 3.9+
-- Docker & Docker Compose
+```powershell
+# 1. Clone repository
+git clone https://github.com/MdTowfikomer/Resume-Screening-Platform.git
+cd Resume-Screening-Platform
 
-### Option 1 — Full Docker Stack (Recommended)
-
-```bash
-# Clone
-git clone https://github.com/your-username/ai-resume-screening-platform.git
-cd ai-resume-screening-platform
-
-# Start all services
-docker-compose up -d
-
-# Watch logs
-docker-compose logs -f app
-```
-
-All services will be available at:
-
-| Service | URL |
-|---|---|
-| Spring Boot API | http://localhost:8080 |
-| Swagger UI | http://localhost:8080/swagger-ui.html |
-| Python NLP API | http://localhost:5000/docs |
-| Mongo Express | http://localhost:8081 |
-| Kibana | http://localhost:5601 |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3000 (admin/admin123) |
-
-### Option 2 — Run Locally (infrastructure via Docker)
-
-```bash
-# Start only infrastructure
-docker-compose up -d mongo redis elasticsearch kafka zookeeper
-
-# Run Spring Boot
-mvn spring-boot:run
-
-# Run Python NLP (separate terminal)
+# 2. Setup Python environment
 cd ai-nlp-service
+python -m venv .venv
+.\.venv\Scripts\activate
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-uvicorn app.main:app --reload --port 5000
+
+# 3. Configure credentials (optional, resilient in-memory fallback included)
+copy .env.example .env
+# Fill in MONGO_URI and ELASTICSEARCH_URL
+
+# 4. Launch backend & UI
+python run.py
 ```
-
----
-
-## 🗂️ Project Structure
-
-```
-ai-resume-screening-platform/
-├── src/
-│   └── main/java/com/resumeai/
-│       ├── AiResumeScreeningPlatformApplication.java
-│       ├── config/            # Security, Redis, Kafka, OpenAPI, Async config
-│       ├── constants/         # AppConstants (API paths, topics, cache keys)
-│       ├── controller/        # REST controllers (Auth, Resume, Job, Match, Dashboard)
-│       ├── dto/
-│       │   ├── request/       # Request DTOs with validation
-│       │   └── response/      # Response DTOs + generic ApiResponse<T>
-│       ├── exception/         # Custom exceptions + GlobalExceptionHandler
-│       ├── kafka/
-│       │   ├── consumer/      # ResumeUploadedConsumer, NotificationConsumer
-│       │   └── producer/      # ResumeEventProducer (events for all topics)
-│       ├── model/             # MongoDB documents: Resume, JobPosting, MatchResult, User
-│       ├── repository/
-│       │   ├── mongo/         # MongoRepository extensions
-│       │   └── elasticsearch/ # ElasticsearchRepository extensions + Documents
-│       ├── security/          # JwtTokenProvider, JwtAuthFilter, UserDetailsServiceImpl
-│       ├── service/           # Service interfaces
-│       │   └── impl/          # Implementations: ResumeService, MatchingService, AiNlpService...
-│       └── util/              # ResumeParserUtil (PDFBox), FileStorageUtil
-│
-├── src/test/java/com/resumeai/
-│   ├── controller/            # MockMvc integration tests
-│   ├── service/               # Mockito unit tests (scoring algorithm, service logic)
-│   └── repository/            # Repository tests
-│
-├── ai-nlp-service/            # Python FastAPI microservice
-│   ├── app/main.py            # FastAPI app with /extract and /match-score endpoints
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── docker/
-│   ├── mongo-init.js          # MongoDB init script (indexes)
-│   └── prometheus.yml         # Prometheus scrape config
-│
-├── .github/workflows/ci.yml   # GitHub Actions CI/CD pipeline
-├── docker-compose.yml         # Full local dev stack (10 services)
-├── Dockerfile                 # Multi-stage Spring Boot Docker image
-├── pom.xml                    # Maven build (Java 21, Spring Boot 3.4.1)
-├── .gitignore
-└── README.md
-```
-
----
-
-## 📡 API Endpoints
-
-### Authentication
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/register` | Public | Register candidate or recruiter |
-| `POST` | `/api/v1/auth/login` | Public | Login and get JWT token |
-| `GET` | `/api/v1/auth/me` | Authenticated | Get current user profile |
-
-### Resumes
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/resumes/upload` | Authenticated | Upload PDF/DOCX resume |
-| `GET` | `/api/v1/resumes` | RECRUITER/ADMIN | List all resumes (paginated) |
-| `GET` | `/api/v1/resumes/{id}` | Authenticated | Get resume by ID |
-| `GET` | `/api/v1/resumes/by-email/{email}` | Authenticated | Get by candidate email |
-| `GET` | `/api/v1/resumes/status/{status}` | ADMIN | Filter by processing status |
-| `POST` | `/api/v1/resumes/search/skills` | RECRUITER/ADMIN | Search by skill list |
-| `PUT` | `/api/v1/resumes/{id}` | Authenticated | Update resume metadata |
-| `DELETE` | `/api/v1/resumes/{id}` | Authenticated | Soft-delete resume |
-| `POST` | `/api/v1/resumes/{id}/reprocess` | ADMIN | Re-trigger AI processing |
-| `GET` | `/api/v1/resumes/stats` | RECRUITER/ADMIN | Processing statistics |
-
-### Job Postings
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/jobs` | RECRUITER | Create job posting |
-| `GET` | `/api/v1/jobs` | Public | List active jobs (paginated) |
-| `GET` | `/api/v1/jobs/{id}` | Public | Get job by ID |
-| `GET` | `/api/v1/jobs/search?keyword=...` | Public | Full-text search |
-| `GET` | `/api/v1/jobs/recruiter/mine` | RECRUITER | My job postings |
-| `PUT` | `/api/v1/jobs/{id}` | RECRUITER (owner) | Update job |
-| `DELETE` | `/api/v1/jobs/{id}` | RECRUITER (owner) | Close job |
-| `POST` | `/api/v1/jobs/search/skills` | Authenticated | Jobs by required skills |
-
-### Matching
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/matches/trigger` | RECRUITER | Match resume ↔ job |
-| `POST` | `/api/v1/matches/bulk/{jobId}` | RECRUITER | Bulk match all resumes [async] |
-| `GET` | `/api/v1/matches/{id}` | Authenticated | Get match result |
-| `GET` | `/api/v1/matches/by-job/{jobId}` | RECRUITER | All matches for a job |
-| `GET` | `/api/v1/matches/by-resume/{resumeId}` | Authenticated | All matches for a resume |
-| `GET` | `/api/v1/matches/top/{jobId}?threshold=70` | RECRUITER | Top candidates |
-| `PATCH` | `/api/v1/matches/{id}/status` | RECRUITER | Shortlist/Reject/Hire |
-| `DELETE` | `/api/v1/matches/{id}` | ADMIN | Delete match |
-
-### Recruiter Dashboard
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/recruiter/dashboard` | RECRUITER | Stats + top candidates |
-
----
-
-## 🔐 Authentication
-
-All protected endpoints require a JWT Bearer token in the Authorization header:
-
-```bash
-curl -H "Authorization: Bearer <your-jwt-token>" http://localhost:8080/api/v1/resumes
-```
-
-**Roles:**
-- `ROLE_CANDIDATE` — Upload/view their own resume, see job listings
-- `ROLE_RECRUITER` — Create jobs, trigger matches, view all resumes, recruiter dashboard
-- `ROLE_ADMIN` — Full access including user management and force-reprocessing
-
----
-
-## 🧪 Running Tests
-
-```bash
-# All tests
-mvn test
-
-# Specific test class
-mvn test -Dtest=ResumeServiceTest
-
-# With coverage report
-mvn verify
-open target/site/jacoco/index.html
-```
-
----
-
-## 📊 Matching Score Algorithm
-
-```
-Overall Score = (Skill Match × 50%) + (Experience × 25%) + (Education × 10%) + (Keywords × 15%)
-
-When AI/NLP service is available:
-  Final Score = (AI Score × 60%) + (Rule-based Score × 40%)
-
-Recommendations:
-  85–100 → STRONG_MATCH  ✅
-  70–84  → GOOD_MATCH    👍
-  55–69  → PARTIAL_MATCH ⚠️
-  40–54  → WEAK_MATCH    ⛔
-  0–39   → NO_MATCH      ❌
-```
-
----
-
-## 🔄 Kafka Event Flow
-
-```
-Resume Uploaded
-      │
-      ▼
-[resume-uploaded-events] ── Kafka ──► ResumeUploadedConsumer
-                                             │
-                                    1. Extract PDF text (PDFBox)
-                                    2. Call AI/NLP service
-                                    3. Save enriched Resume → MongoDB
-                                    4. Index → Elasticsearch
-                                             │
-                                             ▼
-                                  [resume-processed-events]
-                                             │
-                                    Trigger auto-matching
-                                             │
-                                             ▼
-                                  [job-matched-events]
-                                             │
-                                    Send notification
-                                             │
-                                             ▼
-                                  [notification-events]
-```
-
----
-
-## 🐳 Docker Commands
-
-```bash
-# Start everything
-docker-compose up -d
-
-# Stop everything
-docker-compose down
-
-# View logs for app only
-docker-compose logs -f app
-
-# Rebuild after code changes
-docker-compose up -d --build app
-
-# Scale the NLP service
-docker-compose up -d --scale ai-nlp=3
-
-# Wipe all data (volumes)
-docker-compose down -v
-```
-
----
-
-## ⚙️ Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `MONGO_HOST` | `localhost` | MongoDB host |
-| `MONGO_DB` | `resume_screening_db` | Database name |
-| `REDIS_HOST` | `localhost` | Redis host |
-| `ES_URI` | `http://localhost:9200` | Elasticsearch URI |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka brokers |
-| `AI_NLP_URL` | `http://localhost:5000` | Python NLP microservice URL |
-| `AI_NLP_ENABLED` | `true` | Toggle AI service (uses fallback if false) |
-| `JWT_SECRET` | *(long key)* | JWT signing secret (min 256 bits) |
-| `RESUME_STORAGE_PATH` | `./uploads/resumes` | Local file storage path |
+Open `http://localhost:8000` to access the candidate ledger and interactive search workbench.
 
 ---
 
 ## 📄 License
-
-This project is licensed under the **Apache 2.0 License** — see the [LICENSE](LICENSE) file.
-
----
-
-*Built with ❤️ using Spring Boot 3.4.1, MongoDB, Elasticsearch, Kafka, Redis, and Python NLP*
----
----
-
-<img width="1607" height="892" alt="image" src="https://github.com/user-attachments/assets/c83fa07d-1364-470d-b768-2744eeb9b197" />
-<img width="1546" height="760" alt="image" src="https://github.com/user-attachments/assets/67a79e6b-4b76-4263-900a-255ed99c8b6d" />
-
----
-
-<img width="1306" height="590" alt="image" src="https://github.com/user-attachments/assets/048f6871-638e-4374-8ed5-84fd3a20435d" />
-<img width="1304" height="940" alt="image" src="https://github.com/user-attachments/assets/5ab7f687-e2d5-45b9-90f2-1ce6cc1863b2" />
-
----
-
-<img width="1303" height="542" alt="image" src="https://github.com/user-attachments/assets/bc3efd67-cdca-449e-8f32-646974eb8b3a" />
-<img width="1308" height="817" alt="image" src="https://github.com/user-attachments/assets/c7f1fac4-b586-4158-be2d-c6d37df361fa" />
-<img width="1311" height="911" alt="image" src="https://github.com/user-attachments/assets/78a041f9-75bd-48ae-bfa1-5c1e42f402fc" />
-
----
-
-<img width="1290" height="884" alt="image" src="https://github.com/user-attachments/assets/53682caf-37a0-4555-ba47-38109d3b2479" />
-<img width="1324" height="657" alt="image" src="https://github.com/user-attachments/assets/d51d4678-bdf6-402e-9ad2-1008525335f4" />
-<img width="1288" height="682" alt="image" src="https://github.com/user-attachments/assets/66a08415-a0ec-4dcd-a6df-b4444e523a85" />
-
-
+This project is open-source under the [MIT License](LICENSE).
