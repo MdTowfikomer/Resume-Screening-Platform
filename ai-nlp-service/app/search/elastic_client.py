@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 ELASTIC_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 ELASTIC_USER = os.getenv("ELASTIC_USER", "elastic")
-ELASTIC_PASSWORD = os.getenv("ELASTIC_PASSWORD", "password123")
+ELASTIC_PASSWORD = os.getenv("ELASTIC_PASSWORD", "")
+ELASTIC_API_KEY = os.getenv("ELASTIC_API_KEY", "")
 INDEX_NAME = os.getenv("ELASTIC_INDEX", "resumes-vector-idx")
 
 class ElasticsearchEngine:
@@ -41,11 +42,16 @@ class ElasticsearchEngine:
         """Attempt connection to Elasticsearch cluster."""
         try:
             from elasticsearch import Elasticsearch
+            auth_kwargs = {"request_timeout": 6.0}
+            if ELASTIC_API_KEY:
+                auth_kwargs["api_key"] = ELASTIC_API_KEY
+            elif ELASTIC_PASSWORD:
+                auth_kwargs["basic_auth"] = (ELASTIC_USER, ELASTIC_PASSWORD)
+                auth_kwargs["verify_certs"] = False
+
             es = Elasticsearch(
                 ELASTIC_URL,
-                basic_auth=(ELASTIC_USER, ELASTIC_PASSWORD) if ELASTIC_PASSWORD else None,
-                request_timeout=1.5,
-                verify_certs=False
+                **auth_kwargs
             )
             if es.ping():
                 self.client = es
