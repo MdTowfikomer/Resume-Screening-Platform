@@ -1,196 +1,311 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full antialiased">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Talent Search Engine | MongoDB + Elasticsearch</title>
+  <title>Talent Index — MongoDB & Elasticsearch Hybrid Retrieval</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            surface: {
+              DEFAULT: '#111215',
+              subtle: '#17191e',
+              muted: '#20232b',
+              border: '#2a2e39',
+              borderSubtle: '#1e2129',
+            },
+            accent: {
+              DEFAULT: '#2563eb', // Restrained engineering cobalt
+              hover: '#1d4ed8',
+              subtle: 'rgba(37, 99, 235, 0.08)',
+              text: '#60a5fa'
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .mono { font-family: 'JetBrains Mono', monospace; }
+    /* Anti-slop craft adjustments */
+    body {
+      background-color: #0c0d10;
+      color: #e4e7ed;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    /* Subtle hairline focus states */
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0c0d10; }
+    ::-webkit-scrollbar-thumb { background: #262933; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #353945; }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="min-h-full flex flex-col font-sans text-sm selection:bg-blue-600/30 selection:text-blue-200">
 
-  <!-- Header -->
-  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
-          <i class="fa-solid fa-brain"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400">
-            AI Talent Search & Screening Platform
-          </h1>
-          <p class="text-xs text-slate-400">MongoDB (Document Store) & Elasticsearch (Hybrid Vector Search)</p>
+  <!-- Top Navigation / Utility Bar -->
+  <header class="border-b border-surface-borderSubtle bg-surface/90 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
+      
+      <!-- Brand & Topology -->
+      <div class="flex items-center gap-3">
+        <span class="w-7 h-7 rounded-[6px] bg-neutral-800 border border-neutral-700/60 flex items-center justify-center font-mono font-semibold text-xs text-neutral-200">
+          TI
+        </span>
+        <div class="flex items-baseline gap-2">
+          <span class="font-semibold tracking-[-0.01em] text-neutral-100">Talent Index</span>
+          <span class="text-neutral-500 text-xs hidden sm:inline">MongoDB + Elasticsearch RRF</span>
         </div>
       </div>
 
-      <!-- Backend Connection & DB Status Indicators -->
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
-          <i class="fa-solid fa-server text-cyan-400"></i>
-          <input id="api-url" type="text" placeholder="Backend URL" class="bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none w-44 font-mono text-[11px]" onchange="saveApiUrl()" />
-          <button onclick="checkHealth()" class="text-cyan-400 hover:text-cyan-300 font-semibold" title="Test Connection"><i class="fa-solid fa-arrows-rotate"></i></button>
+      <!-- Live Connectivity & Host Settings -->
+      <div class="flex items-center gap-2.5">
+        
+        <!-- API URL Configurator -->
+        <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-surface-subtle border border-surface-borderSubtle rounded-[6px] text-xs">
+          <span class="text-neutral-500 font-mono text-[11px]">API</span>
+          <input 
+            id="api-url" 
+            type="text" 
+            placeholder="http://localhost:8000" 
+            class="bg-transparent text-neutral-300 placeholder-neutral-600 text-xs font-mono w-44 focus:outline-none" 
+            onchange="saveApiUrl()"
+          />
+          <button onclick="checkHealth()" class="text-neutral-400 hover:text-neutral-200 transition-colors" title="Ping API">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          </button>
         </div>
 
-        <div id="mongo-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span class="text-slate-300 font-medium">MongoDB:</span>
-          <span id="mongo-status" class="text-emerald-400 font-mono">Checking...</span>
+        <!-- Health Badges (Solid micro-dots, no pulsing neon) -->
+        <div class="flex items-center gap-2 text-xs">
+          <div class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-subtle border border-surface-borderSubtle rounded-[6px]">
+            <span id="mongo-dot" class="w-1.5 h-1.5 rounded-full bg-neutral-500"></span>
+            <span class="text-neutral-400">Mongo:</span>
+            <span id="mongo-status" class="font-mono text-neutral-300">polling</span>
+          </div>
+
+          <div class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-subtle border border-surface-borderSubtle rounded-[6px]">
+            <span id="elastic-dot" class="w-1.5 h-1.5 rounded-full bg-neutral-500"></span>
+            <span class="text-neutral-400">Elastic:</span>
+            <span id="elastic-status" class="font-mono text-neutral-300">polling</span>
+          </div>
         </div>
-        <div id="elastic-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs">
-          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-          <span class="text-slate-300 font-medium">Elasticsearch:</span>
-          <span id="elastic-status" class="text-cyan-400 font-mono">Checking...</span>
-        </div>
-        <button onclick="seedData()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30">
-          <i class="fa-solid fa-database"></i> Seed Candidates
+
+        <!-- Seed Action Button -->
+        <button 
+          onclick="seedData()" 
+          class="h-7 px-2.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/80 text-neutral-200 rounded-[6px] text-xs font-medium transition-colors flex items-center gap-1.5"
+        >
+          <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zM9 12h6M12 9v6"></path></svg>
+          Seed
         </button>
+
       </div>
     </div>
   </header>
 
-  <!-- Main Container -->
-  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+  <!-- Content Workspace -->
+  <main class="max-w-6xl mx-auto px-5 py-8 space-y-8 flex-1 w-full">
 
-    <!-- Search Section -->
-    <section class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-2xl relative overflow-hidden">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+    <!-- Primary Search Surface -->
+    <section class="bg-surface border border-surface-border rounded-[10px] p-6 shadow-sm">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div>
-          <h2 class="text-xl font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> AI Hybrid Candidate Retrieval
-          </h2>
-          <p class="text-sm text-slate-400">Reciprocal Rank Fusion (RRF) combining BM25 Lexical Keyword Search + 64-dim Dense Vector Similarity</p>
+          <h2 class="text-base font-semibold text-neutral-100 tracking-[-0.01em]">Candidate Retrieval</h2>
+          <p class="text-xs text-neutral-400 mt-0.5">Reciprocal Rank Fusion over BM25 inverted index & 64-dim cosine embeddings</p>
         </div>
 
-        <!-- Mode Select -->
-        <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs font-semibold">
-          <button id="mode-hybrid" onclick="setMode('hybrid')" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white shadow">Hybrid (RRF)</button>
-          <button id="mode-vector" onclick="setMode('vector')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white">Vector (kNN)</button>
-          <button id="mode-lexical" onclick="setMode('lexical')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white">BM25 Keyword</button>
+        <!-- Segmented Mode Control (Quiet, solid states) -->
+        <div class="inline-flex p-0.5 bg-surface-subtle border border-surface-borderSubtle rounded-[6px] text-xs font-medium">
+          <button id="mode-hybrid" onclick="setMode('hybrid')" class="px-2.5 py-1 rounded-[4px] bg-neutral-800 text-neutral-100 shadow-sm">Hybrid (RRF)</button>
+          <button id="mode-vector" onclick="setMode('vector')" class="px-2.5 py-1 rounded-[4px] text-neutral-400 hover:text-neutral-200">Vector</button>
+          <button id="mode-lexical" onclick="setMode('lexical')" class="px-2.5 py-1 rounded-[4px] text-neutral-400 hover:text-neutral-200">BM25</button>
         </div>
       </div>
 
-      <div class="flex gap-3">
+      <!-- Search Input with Keyboard Cue -->
+      <div class="relative flex items-center">
+        <svg class="w-4 h-4 text-neutral-500 absolute left-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         <input 
           id="search-input" 
           type="text" 
-          placeholder="e.g. Senior Backend Engineer with Python, FastAPI, and Kubernetes experience..." 
-          class="flex-1 bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+          placeholder="Search by skill stack, responsibility, or domain (e.g., Python FastAPI distributed data pipelines)..." 
+          class="w-full pl-10 pr-20 py-2.5 bg-surface-subtle border border-surface-border rounded-[6px] text-sm text-neutral-100 placeholder-neutral-500 font-sans transition-all"
           onkeydown="if(event.key === 'Enter') runSearch()"
         />
-        <button onclick="runSearch()" class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold rounded-xl text-sm transition flex items-center gap-2 shadow-lg shadow-cyan-500/20">
-          <i class="fa-solid fa-bolt"></i> Search
-        </button>
+        <div class="absolute right-2.5 flex items-center gap-1.5">
+          <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-neutral-500 bg-surface border border-surface-border rounded">Enter</kbd>
+          <button 
+            onclick="runSearch()" 
+            class="h-7 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-[4px] text-xs font-medium transition-colors"
+          >
+            Query
+          </button>
+        </div>
       </div>
 
-      <!-- Quick query chips -->
-      <div class="flex flex-wrap gap-2 mt-3 items-center text-xs text-slate-400">
-        <span>Try searching:</span>
-        <button onclick="quickSearch('Python FastAPI MongoDB backend')" class="px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300">"Python FastAPI MongoDB"</button>
-        <button onclick="quickSearch('NLP machine learning PyTorch vector search')" class="px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300">"NLP PyTorch Vector Search"</button>
-        <button onclick="quickSearch('Kubernetes AWS DevOps infrastructure')" class="px-2.5 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300">"Kubernetes AWS DevOps"</button>
+      <!-- Sample Prompts -->
+      <div class="flex flex-wrap gap-2 mt-3 text-xs text-neutral-400 items-center">
+        <span class="text-neutral-500 text-[11px]">Queries:</span>
+        <button onclick="quickSearch('Python FastAPI MongoDB backend architecture')" class="px-2 py-0.5 bg-surface-subtle hover:bg-surface-muted border border-surface-borderSubtle text-neutral-300 rounded-[4px] transition-colors">Python FastAPI MongoDB</button>
+        <button onclick="quickSearch('PyTorch NLP semantic vector search RAG')" class="px-2 py-0.5 bg-surface-subtle hover:bg-surface-muted border border-surface-borderSubtle text-neutral-300 rounded-[4px] transition-colors">NLP Vector Search</button>
+        <button onclick="quickSearch('Kubernetes AWS infrastructure Terraform')" class="px-2 py-0.5 bg-surface-subtle hover:bg-surface-muted border border-surface-borderSubtle text-neutral-300 rounded-[4px] transition-colors">Kubernetes Cloud SRE</button>
       </div>
 
-      <!-- Results Grid -->
-      <div id="results-container" class="mt-6 space-y-3">
-        <!-- Rendered by JS -->
+      <!-- Results Ledger -->
+      <div id="results-container" class="mt-5 space-y-2">
+        <!-- Rendered via JS -->
       </div>
     </section>
 
-    <!-- Two Column: Skill Extraction & Job Match -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Two-Column Workbench: Ingestion + Evaluation -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      <!-- Column 1: AI Resume Parser & Ingestion -->
-      <div class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-xl flex flex-col justify-between">
+      <!-- Workbench 1: Ingestion & Extraction -->
+      <section class="bg-surface border border-surface-border rounded-[10px] p-5 flex flex-col justify-between">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
-            <i class="fa-solid fa-file-invoice text-emerald-400"></i> AI Skill Extraction & MongoDB Sync
-          </h2>
-          <p class="text-xs text-slate-400 mb-4">Paste raw candidate resume text to extract skills, experience, and sync to MongoDB + Elasticsearch.</p>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-neutral-100 tracking-[-0.01em]">Ingest & Extract Profile</h3>
+            <span class="text-[11px] font-mono text-neutral-500">MongoDB Sink</span>
+          </div>
 
           <div class="space-y-3">
-            <input id="cand-name" type="text" placeholder="Candidate Name (e.g. Alex Rivera)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500" />
-            <textarea id="resume-text" rows="6" placeholder="Paste full resume text here..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"></textarea>
+            <div>
+              <label class="block text-[11px] font-medium text-neutral-400 mb-1">Candidate Name</label>
+              <input 
+                id="cand-name" 
+                type="text" 
+                placeholder="Elena Rostova" 
+                class="w-full px-3 py-1.5 bg-surface-subtle border border-surface-border rounded-[6px] text-xs text-neutral-100 placeholder-neutral-600"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-medium text-neutral-400 mb-1">Raw Resume Text</label>
+              <textarea 
+                id="resume-text" 
+                rows="5" 
+                placeholder="Paste plain text resume or work history..." 
+                class="w-full p-3 bg-surface-subtle border border-surface-border rounded-[6px] text-xs text-neutral-200 placeholder-neutral-600 font-mono leading-relaxed"
+              ></textarea>
+            </div>
           </div>
 
-          <div class="flex gap-2 mt-3">
-            <button onclick="extractSkills()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> 1. Extract Skills
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <button 
+              onclick="extractSkills()" 
+              class="h-8 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/80 text-neutral-200 rounded-[6px] text-xs font-medium transition-colors"
+            >
+              Parse Skills
             </button>
-            <button onclick="saveAndSync()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
-              <i class="fa-solid fa-cloud-arrow-up"></i> 2. Save & Sync to DBs
+            <button 
+              onclick="saveAndSync()" 
+              class="h-8 bg-blue-600 hover:bg-blue-500 text-white rounded-[6px] text-xs font-medium transition-colors"
+            >
+              Commit & Sync
             </button>
           </div>
 
-          <!-- Extraction Output -->
-          <div id="extract-result" class="mt-4 p-4 rounded-xl bg-slate-900/80 border border-slate-700/60 hidden">
-            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Extraction Results</h4>
-            <div id="skills-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
-            <div id="meta-stats" class="text-xs text-slate-400 space-y-1"></div>
+          <!-- Extraction Output Ledger -->
+          <div id="extract-result" class="mt-4 p-3.5 bg-surface-subtle border border-surface-borderSubtle rounded-[6px] hidden space-y-2">
+            <div class="flex items-center justify-between text-xs text-neutral-400">
+              <span class="font-medium text-neutral-300">Identified Entities</span>
+              <span id="extract-latency" class="font-mono text-[11px] text-neutral-500"></span>
+            </div>
+            <div id="skills-chips" class="flex flex-wrap gap-1"></div>
+            <div id="meta-stats" class="text-xs text-neutral-400 border-t border-surface-borderSubtle pt-2 space-y-0.5"></div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Column 2: Job Requisition Match Scorer -->
-      <div class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 shadow-xl flex flex-col justify-between">
+      <!-- Workbench 2: Requisition Fit Scorer -->
+      <section class="bg-surface border border-surface-border rounded-[10px] p-5 flex flex-col justify-between">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
-            <i class="fa-solid fa-bullseye text-indigo-400"></i> Job Fit & Semantic Match Scorer
-          </h2>
-          <p class="text-xs text-slate-400 mb-4">Calculate keyword alignment & semantic vector affinity between candidate skills and job requirements.</p>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-neutral-100 tracking-[-0.01em]">Job Requisition Matcher</h3>
+            <span class="text-[11px] font-mono text-neutral-500">Semantic Fit</span>
+          </div>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Required Skills (Comma separated)</label>
-              <input id="req-skills" type="text" value="Python, FastAPI, MongoDB, Elasticsearch, Docker" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              <label class="block text-[11px] font-medium text-neutral-400 mb-1">Required Competencies</label>
+              <input 
+                id="req-skills" 
+                type="text" 
+                value="Python, FastAPI, MongoDB, Elasticsearch, Docker" 
+                class="w-full px-3 py-1.5 bg-surface-subtle border border-surface-border rounded-[6px] text-xs text-neutral-100"
+              />
             </div>
+
             <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Preferred Skills</label>
-              <input id="pref-skills" type="text" value="Kubernetes, Redis, Kafka" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              <label class="block text-[11px] font-medium text-neutral-400 mb-1">Preferred / Bonus</label>
+              <input 
+                id="pref-skills" 
+                type="text" 
+                value="Kubernetes, Redis, Kafka" 
+                class="w-full px-3 py-1.5 bg-surface-subtle border border-surface-border rounded-[6px] text-xs text-neutral-100"
+              />
             </div>
+
             <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Candidate Profile to Test</label>
-              <textarea id="match-candidate-text" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">Backend engineer with 6 years experience in Python, FastAPI, and MongoDB. Designed full-text search indexes with Elasticsearch and caching with Redis.</textarea>
+              <label class="block text-[11px] font-medium text-neutral-400 mb-1">Candidate Profile Summary</label>
+              <textarea 
+                id="match-candidate-text" 
+                rows="3" 
+                class="w-full p-3 bg-surface-subtle border border-surface-border rounded-[6px] text-xs text-neutral-200 font-mono leading-relaxed"
+              >Backend engineer with 6 years experience in Python, FastAPI, and MongoDB. Designed full-text search indexes with Elasticsearch and caching with Redis.</textarea>
             </div>
           </div>
 
-          <button onclick="calculateMatch()" class="w-full mt-4 py-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-slate-950 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
-            <i class="fa-solid fa-chart-simple"></i> Compute Weighted Match Score
+          <button 
+            onclick="calculateMatch()" 
+            class="w-full h-8 mt-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/80 text-neutral-200 rounded-[6px] text-xs font-medium transition-colors"
+          >
+            Compute Affinity Score
           </button>
 
-          <!-- Match Output -->
-          <div id="match-result" class="mt-4 p-4 rounded-xl bg-slate-900/80 border border-slate-700/60 hidden">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-xs font-bold text-slate-300 uppercase">Match Score</span>
-              <span id="final-score" class="text-2xl font-black text-emerald-400">92%</span>
+          <!-- Match Output Breakdown (No cheesy progress bars) -->
+          <div id="match-result" class="mt-4 p-3.5 bg-surface-subtle border border-surface-borderSubtle rounded-[6px] hidden space-y-2">
+            <div class="flex items-baseline justify-between border-b border-surface-borderSubtle pb-2">
+              <span class="text-xs font-medium text-neutral-300">Composite Match</span>
+              <span id="final-score" class="font-mono text-lg font-semibold text-neutral-100 tabular-nums"></span>
             </div>
-            <div class="w-full bg-slate-800 rounded-full h-2 mb-3">
-              <div id="score-bar" class="bg-gradient-to-r from-emerald-500 to-cyan-500 h-2 rounded-full" style="width: 92%"></div>
-            </div>
-            <p id="match-explanation" class="text-xs text-slate-300 leading-relaxed"></p>
+            <div class="text-xs text-neutral-400 leading-relaxed pt-1" id="match-explanation"></div>
           </div>
         </div>
-      </div>
+      </section>
 
     </div>
 
   </main>
 
-  <!-- Footer -->
-  <footer class="mt-12 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-    <p>AI Talent Search Engine • Deployed on Vercel & Render • Powered by FastAPI, MongoDB, and Elasticsearch RRF Hybrid Search.</p>
+  <!-- Restrained Minimalist Footer -->
+  <footer class="border-t border-surface-borderSubtle py-4 text-center text-xs text-neutral-500 font-mono">
+    Talent Index · Dual-Store Architecture (MongoDB + Elasticsearch 8/9 RRF)
   </footer>
 
   <script>
     let currentMode = 'hybrid';
     let lastExtracted = null;
 
-    // Default API URL resolution
     function getApiUrl() {
       let saved = localStorage.getItem('ai_talent_api_url');
       if (saved) return saved.replace(/\/$/, '');
@@ -212,9 +327,9 @@
       ['hybrid', 'vector', 'lexical'].forEach(m => {
         const btn = document.getElementById(`mode-${m}`);
         if (m === mode) {
-          btn.className = 'px-3 py-1.5 rounded-lg bg-emerald-500 text-white shadow';
+          btn.className = 'px-2.5 py-1 rounded-[4px] bg-neutral-800 text-neutral-100 shadow-sm';
         } else {
-          btn.className = 'px-3 py-1.5 rounded-lg text-slate-400 hover:text-white';
+          btn.className = 'px-2.5 py-1 rounded-[4px] text-neutral-400 hover:text-neutral-200';
         }
       });
       runSearch();
@@ -223,22 +338,26 @@
     async function checkHealth() {
       const base = getApiUrl();
       const mongoStatus = document.getElementById('mongo-status');
+      const mongoDot = document.getElementById('mongo-dot');
       const elasticStatus = document.getElementById('elastic-status');
+      const elasticDot = document.getElementById('elastic-dot');
 
       try {
         const res = await fetch(`${base}/health`);
         const data = await res.json();
         
-        mongoStatus.innerText = data.mongodb.connected ? 'Connected' : 'In-Memory Mode';
-        mongoStatus.className = data.mongodb.connected ? 'text-emerald-400 font-mono' : 'text-amber-400 font-mono';
+        // MongoDB status
+        mongoStatus.innerText = data.mongodb.connected ? 'online' : 'in-memory';
+        mongoDot.className = data.mongodb.connected ? 'w-1.5 h-1.5 rounded-full bg-emerald-500' : 'w-1.5 h-1.5 rounded-full bg-amber-500';
 
-        elasticStatus.innerText = data.elasticsearch.connected ? 'Connected' : 'In-Memory Mode';
-        elasticStatus.className = data.elasticsearch.connected ? 'text-cyan-400 font-mono' : 'text-amber-400 font-mono';
+        // Elasticsearch status
+        elasticStatus.innerText = data.elasticsearch.connected ? 'online' : 'in-memory';
+        elasticDot.className = data.elasticsearch.connected ? 'w-1.5 h-1.5 rounded-full bg-emerald-500' : 'w-1.5 h-1.5 rounded-full bg-amber-500';
       } catch (e) {
-        mongoStatus.innerText = 'Offline';
-        mongoStatus.className = 'text-rose-400 font-mono';
-        elasticStatus.innerText = 'Offline';
-        elasticStatus.className = 'text-rose-400 font-mono';
+        mongoStatus.innerText = 'offline';
+        mongoDot.className = 'w-1.5 h-1.5 rounded-full bg-neutral-600';
+        elasticStatus.innerText = 'offline';
+        elasticDot.className = 'w-1.5 h-1.5 rounded-full bg-neutral-600';
       }
     }
 
@@ -247,11 +366,10 @@
       try {
         const res = await fetch(`${base}/api/v1/seed`, { method: 'POST' });
         const data = await res.json();
-        alert(`Success! Seeded ${data.seeded_count} candidate profiles into MongoDB & Elasticsearch.`);
         checkHealth();
         runSearch();
       } catch (e) {
-        alert('Seed failed: ' + e);
+        alert('Seed request failed: ' + e);
       }
     }
 
@@ -264,7 +382,7 @@
       const base = getApiUrl();
       const q = document.getElementById('search-input').value.trim();
       const container = document.getElementById('results-container');
-      container.innerHTML = '<div class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Querying Elasticsearch hybrid index...</div>';
+      container.innerHTML = '<div class="py-6 text-center text-xs text-neutral-500 font-mono">Querying indices...</div>';
 
       try {
         const res = await fetch(`${base}/api/v1/search/hybrid`, {
@@ -275,34 +393,34 @@
         const data = await res.json();
         renderResults(data.results);
       } catch (e) {
-        container.innerHTML = `<div class="text-center py-6 text-rose-400 text-sm">Search failed: Please verify Backend URL connection.</div>`;
+        container.innerHTML = `<div class="py-6 text-center text-xs text-rose-400 font-mono">Query failed: verify API URL connection.</div>`;
       }
     }
 
     function renderResults(results) {
       const container = document.getElementById('results-container');
       if (!results || results.length === 0) {
-        container.innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">No matching candidates found. Click "Seed Candidates" above to load test profiles!</div>';
+        container.innerHTML = '<div class="py-8 text-center text-xs text-neutral-500 font-mono">No matching records. Click "Seed" in header to populate candidate profiles.</div>';
         return;
       }
 
       container.innerHTML = results.map((r, i) => `
-        <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700/70 hover:border-slate-600 transition flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div class="space-y-1.5 flex-1">
-            <div class="flex items-center gap-3">
-              <span class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">#${i + 1}</span>
-              <h3 class="text-base font-bold text-white">${r.candidate_name || 'Anonymous'}</h3>
-              <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${r.experience_years ? r.experience_years + ' yrs exp' : 'Experience N/A'}</span>
+        <div class="p-3.5 bg-surface-subtle border border-surface-borderSubtle hover:border-surface-border rounded-[6px] transition-colors flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div class="space-y-1.5 flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs text-neutral-500">0${i + 1}</span>
+              <h4 class="font-medium text-neutral-200 text-xs tracking-[-0.01em]">${r.candidate_name || 'Anonymous'}</h4>
+              <span class="text-[11px] text-neutral-400 font-mono">· ${r.experience_years ? r.experience_years + 'y exp' : 'n/a'}</span>
             </div>
-            <p class="text-xs text-slate-300">${r.summary || 'Profile indexed in MongoDB & Elasticsearch'}</p>
-            <div class="flex flex-wrap gap-1.5 pt-1">
-              ${(r.skills || []).map(s => `<span class="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 text-xs">${s}</span>`).join('')}
+            <p class="text-xs text-neutral-400 line-clamp-1 leading-normal">${r.summary || 'Synchronized profile document.'}</p>
+            <div class="flex flex-wrap gap-1 pt-0.5">
+              ${(r.skills || []).map(s => `<span class="px-1.5 py-0.5 rounded-[4px] bg-neutral-800 text-neutral-300 font-mono text-[10px] border border-neutral-700/60">${s}</span>`).join('')}
             </div>
           </div>
-          <div class="text-right">
-            <span class="text-xs text-slate-400 block">${currentMode === 'hybrid' ? 'RRF Fused Score' : 'Relevance Score'}</span>
-            <span class="text-xl font-black text-cyan-400 font-mono">${r.rrf_score || r.score || '0.00'}</span>
-            ${r.lexical_rank && r.vector_rank ? `<span class="text-[10px] text-slate-500 block">BM25 Rank: #${r.lexical_rank} | Vector: #${r.vector_rank}</span>` : ''}
+          <div class="text-right shrink-0 md:pl-4">
+            <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-500 block">${currentMode === 'hybrid' ? 'RRF Fused' : 'Relevance'}</span>
+            <span class="font-mono text-sm text-neutral-200 tabular-nums">${r.rrf_score || r.score || '0.000'}</span>
+            ${r.lexical_rank && r.vector_rank ? `<span class="text-[10px] text-neutral-500 font-mono block">bm25: #${r.lexical_rank} · vec: #${r.vector_rank}</span>` : ''}
           </div>
         </div>
       `).join('');
@@ -312,7 +430,7 @@
       const base = getApiUrl();
       const text = document.getElementById('resume-text').value.trim();
       if (!text) {
-        alert('Please paste resume text first.');
+        alert('Please paste resume text.');
         return;
       }
       try {
@@ -327,26 +445,26 @@
         const box = document.getElementById('extract-result');
         box.classList.remove('hidden');
 
+        document.getElementById('extract-latency').innerText = `${data.processing_time_ms}ms · ${(data.confidence_score * 100).toFixed(0)}% conf`;
         document.getElementById('skills-chips').innerHTML = data.technical_skills.map(s => `
-          <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs border border-emerald-500/30 font-medium">${s}</span>
-        `).join('') || '<span class="text-xs text-slate-500">No skills identified</span>';
+          <span class="px-1.5 py-0.5 bg-neutral-800 text-neutral-200 font-mono text-[10px] rounded-[4px] border border-neutral-700">${s}</span>
+        `).join('') || '<span class="text-xs text-neutral-500">None extracted</span>';
 
         document.getElementById('meta-stats').innerHTML = `
-          <div><strong>Experience:</strong> ${data.experience_years ? data.experience_years + ' years' : 'N/A'}</div>
-          <div><strong>Summary:</strong> ${data.summary || 'N/A'}</div>
-          <div><strong>Processing Time:</strong> ${data.processing_time_ms}ms (Confidence: ${Math.round(data.confidence_score * 100)}%)</div>
+          <div><span class="text-neutral-500">Experience:</span> ${data.experience_years ? data.experience_years + ' years' : 'n/a'}</div>
+          <div><span class="text-neutral-500">Summary:</span> ${data.summary || 'n/a'}</div>
         `;
       } catch (e) {
-        alert('Extraction error: ' + e);
+        alert('Extraction failed: ' + e);
       }
     }
 
     async function saveAndSync() {
       const base = getApiUrl();
-      const name = document.getElementById('cand-name').value.trim() || 'Alex Rivera';
+      const name = document.getElementById('cand-name').value.trim() || 'Anonymous Candidate';
       const text = document.getElementById('resume-text').value.trim();
       if (!text) {
-        alert('Please enter resume text before saving.');
+        alert('Resume text is required.');
         return;
       }
 
@@ -359,12 +477,11 @@
             raw_text: text,
             technical_skills: lastExtracted ? lastExtracted.technical_skills : [],
             soft_skills: lastExtracted ? lastExtracted.soft_skills : [],
-            experience_years: lastExtracted ? lastExtracted.experience_years : 3.0,
+            experience_years: lastExtracted ? lastExtracted.experience_years : 2.5,
             summary: lastExtracted ? lastExtracted.summary : ''
           })
         });
         const data = await res.json();
-        alert(`Successfully synchronized! Stored in MongoDB and Indexed in Elasticsearch with ID: ${data.id}`);
         checkHealth();
         runSearch();
       } catch (e) {
@@ -393,11 +510,10 @@
         const box = document.getElementById('match-result');
         box.classList.remove('hidden');
 
-        document.getElementById('final-score').innerText = `${data.score}%`;
-        document.getElementById('score-bar').style.width = `${data.score}%`;
+        document.getElementById('final-score').innerText = `${data.score.toFixed(1)}%`;
         document.getElementById('match-explanation').innerText = data.explanation;
       } catch (e) {
-        alert('Match calculation error: ' + e);
+        alert('Match calculation failed: ' + e);
       }
     }
 
