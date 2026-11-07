@@ -12,8 +12,12 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
 
+from pathlib import Path
 try:
     from dotenv import load_dotenv
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    load_dotenv(base_dir / ".env.local")
+    load_dotenv(base_dir / ".env")
     load_dotenv()
 except ImportError:
     pass
