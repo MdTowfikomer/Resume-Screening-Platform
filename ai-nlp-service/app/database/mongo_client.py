@@ -12,6 +12,12 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")

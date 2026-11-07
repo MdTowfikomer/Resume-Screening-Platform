@@ -13,6 +13,12 @@ import logging
 from typing import Dict, Any, List, Optional
 import numpy as np
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 ELASTIC_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
