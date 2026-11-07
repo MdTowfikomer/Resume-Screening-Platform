@@ -4,7 +4,7 @@
 
 ---
 
-![Architecture Overview](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80)
+![Architecture Overview](medium-hero.png)
 
 In today's hyper-competitive hiring landscape, traditional applicant tracking systems (ATS) face a fundamental dilemma: **keyword matching is brittle, while pure vector semantic search often misses exact technical requirements.**
 
@@ -166,32 +166,26 @@ uv pip install -r requirements.txt
 # Run the server
 python run.py
 ```
-Visit `http://localhost:8000` to interact with the Glassmorphism Dashboard or `http://localhost:8000/docs` for the interactive Swagger API.
+Visit `http://localhost:8000` to interact with the Candidate Ledger & Evaluation Workbench or `http://localhost:8000/docs` for the interactive Swagger API.
 
-### 1-Click Cloud Deployment (Render / Railway)
-The project includes a production-ready `Dockerfile` and `render.yaml`:
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install uv && uv pip install --system -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+### Live Production Deployment (Vercel Full-Stack)
+The platform is deployed live as a unified Serverless ASGI application on Vercel:
+- **Live Demo**: [https://ai-talent-search-frontend.vercel.app](https://ai-talent-search-frontend.vercel.app)
+- **API Health**: [https://ai-talent-search-frontend.vercel.app/health](https://ai-talent-search-frontend.vercel.app/health)
 
 ---
 
 ## Key Takeaways
 
-1. **Don't force one database to do everything**: Use MongoDB for agile, document-based operational storage, and Elasticsearch for low-latency retrieval.
+1. **Don't force one database to do everything**: Use MongoDB Atlas for agile, document-based operational storage, and Elasticsearch for low-latency retrieval.
 2. **Hybrid Search is the new standard**: Pure keyword search is too rigid; pure vector search is too fuzzy. **Reciprocal Rank Fusion (RRF)** bridges the gap without requiring complex score normalization.
 3. **Resilience matters**: By adding fallback stores, local development and automated testing can proceed uninterrupted even before full cloud clusters are provisioned.
 
 ---
 
 ### Resources & Source Code
-- **GitHub Repository**: [rahul-ghadge/ai-resume-screening-platform](https://github.com/rahul-ghadge/ai-resume-screening-platform)
-- **Tech Stack**: FastAPI, MongoDB, Elasticsearch, Reciprocal Rank Fusion (RRF), Python 3.12, Docker.
+- **Live Application**: [https://ai-talent-search-frontend.vercel.app](https://ai-talent-search-frontend.vercel.app)
+- **GitHub Repository**: [MdTowfikomer/Resume-Screening-Platform](https://github.com/MdTowfikomer/Resume-Screening-Platform)
+- **Tech Stack**: FastAPI, MongoDB Atlas, Elasticsearch Cloud Serverless 9.7, Reciprocal Rank Fusion (RRF), Python 3.12, Tailwind CSS.
 
 *If you found this architecture breakdown helpful, leave a few claps 👏 and share your thoughts in the comments!*
